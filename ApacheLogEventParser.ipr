@@ -530,6 +530,7 @@
       </CLASSES>
       <JAVADOC>
         <root url="jar://$PROJECT_DIR$/lib/joda-time/joda-time-2.1-javadoc.jar!/" />
+        <root url="http://joda-time.sourceforge.net/api-release/" />
       </JAVADOC>
       <SOURCES>
         <root url="jar://$PROJECT_DIR$/lib/joda-time/joda-time-2.1-sources.jar!/" />

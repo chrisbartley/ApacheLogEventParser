@@ -6,8 +6,8 @@ import java.util.Map;
 import org.jetbrains.annotations.NotNull;
 import org.jetbrains.annotations.Nullable;
 import org.joda.time.DateTime;
+import org.joda.time.format.DateTimeFormat;
 import org.joda.time.format.DateTimeFormatter;
-import org.joda.time.format.ISODateTimeFormat;
 
 /**
  * @author Chris Bartley (bartley@cmu.edu)
@@ -72,7 +72,7 @@ public final class BritishMuseumStatsGenerator extends BaseEventLogLineProcessor
       private static final File FILE = new File("daily-usage-stats.csv");
 
       @NotNull
-      private final DateTimeFormatter dateTimeFormatter = ISODateTimeFormat.dateTime();
+      private final DateTimeFormatter dateTimeFormatter = DateTimeFormat.forPattern("yyyy-MM-dd HH:mm:ss.SSS");
 
       @Nullable
       private Long currentDate = null;
@@ -145,7 +145,7 @@ public final class BritishMuseumStatsGenerator extends BaseEventLogLineProcessor
       @Override
       public void processEvent(@NotNull final Event event)
          {
-
+         // not used
          }
 
       public void processEvent(@NotNull final Long eventDate,

@@ -17,10 +17,15 @@ final class Event implements Comparable<Event>
    @NotNull
    private final String type;
 
+   private final long dateInMillis;
+
    @NotNull
    private final Long timeInMillis;
 
-   private final long dateInMillis;
+   @NotNull
+   private final DateTime date;
+   @NotNull
+   private final DateTime time;
 
    @NotNull
    private final Map<String, String> params = new HashMap<String, String>();
@@ -29,15 +34,15 @@ final class Event implements Comparable<Event>
       {
       this.type = type;
       this.timeInMillis = timeInMillis;
-      final DateTime time = new DateTime(timeInMillis, DateTimeZone.forTimeZone(timeZone));
-      final DateTime date = new DateTime(time.getYear(),
-                                         time.getMonthOfYear(),
-                                         time.getDayOfMonth(),
-                                         0,
-                                         0,
-                                         0,
-                                         0,
-                                         DateTimeZone.forTimeZone(timeZone));
+      this.time = new DateTime(timeInMillis, DateTimeZone.forTimeZone(timeZone));
+      this.date = new DateTime(time.getYear(),
+                               time.getMonthOfYear(),
+                               time.getDayOfMonth(),
+                               0,
+                               0,
+                               0,
+                               0,
+                               DateTimeZone.forTimeZone(timeZone));
 
       this.dateInMillis = date.getMillis();
       this.params.putAll(params);
@@ -78,6 +83,18 @@ final class Event implements Comparable<Event>
    public long getDateInMillis()
       {
       return dateInMillis;
+      }
+
+   @NotNull
+   public DateTime getDate()
+      {
+      return date;
+      }
+
+   @NotNull
+   public DateTime getTime()
+      {
+      return time;
       }
 
    @Nullable

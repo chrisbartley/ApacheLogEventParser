@@ -6,6 +6,8 @@ import java.io.PrintStream;
 import org.apache.log4j.Logger;
 import org.jetbrains.annotations.NotNull;
 import org.jetbrains.annotations.Nullable;
+import org.joda.time.format.DateTimeFormat;
+import org.joda.time.format.DateTimeFormatter;
 
 /**
  * @author Chris Bartley (bartley@cmu.edu)
@@ -14,6 +16,9 @@ import org.jetbrains.annotations.Nullable;
 abstract class CsvOutputEventProcessor implements EventProcessor
    {
    private static final Logger LOG = Logger.getLogger(CsvOutputEventProcessor.class);
+
+   @NotNull
+   private final DateTimeFormatter dateTimeFormatter = DateTimeFormat.forPattern("yyyy-MM-dd HH:mm:ss.SSS");
 
    @NotNull
    public static final String FIELD_DELIMITER = ",";
@@ -57,6 +62,10 @@ abstract class CsvOutputEventProcessor implements EventProcessor
    public void processEvent(@NotNull final Event event)
       {
       final StringBuilder sb = new StringBuilder();
+      sb.append(dateTimeFormatter.print(event.getDate()));
+      sb.append(FIELD_DELIMITER);
+      sb.append(dateTimeFormatter.print(event.getTime()));
+      sb.append(FIELD_DELIMITER);
       sb.append(event.getDateInMillis());
       sb.append(FIELD_DELIMITER);
       sb.append(event.getTimeInMillis());

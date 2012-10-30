@@ -16,7 +16,7 @@ abstract class BaseApacheLogLineProcessor implements LineProcessor
    public static final String EVENT_PARAMETER_TIME_NAME = "time";
    private static final TimeZone DEFAULT_TIME_ZONE = TimeZone.getTimeZone("GMT+0");
 
-   private static final Pattern EVENT_LOG_PATTERN = Pattern.compile("^.*event\\.json\\?(.*)&_=.*$");
+   private static final Pattern PATTERN = Pattern.compile("^.*event\\.json\\?(.*)&_=.*$");
 
    private int numLinesProcessed = 0;
 
@@ -26,7 +26,7 @@ abstract class BaseApacheLogLineProcessor implements LineProcessor
       numLinesProcessed++;
       if (line.length() > 0)
          {
-         final Matcher matcher = EVENT_LOG_PATTERN.matcher(line);
+         final Matcher matcher = PATTERN.matcher(line);
          final boolean isMatchFound = matcher.find();
          if (isMatchFound)
             {
