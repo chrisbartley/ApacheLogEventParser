@@ -1,12 +1,13 @@
 package org.createlab.log.event;
 
-import java.util.Calendar;
-import java.util.GregorianCalendar;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
+import java.util.TimeZone;
 import org.jetbrains.annotations.NotNull;
 import org.jetbrains.annotations.Nullable;
+import org.joda.time.DateTime;
+import org.joda.time.DateTimeZone;
 
 /**
  * @author Chris Bartley (bartley@cmu.edu)
@@ -24,15 +25,21 @@ final class Event implements Comparable<Event>
    @NotNull
    private final Map<String, String> params = new HashMap<String, String>();
 
-   Event(@NotNull final String type, final long timeInMillis, @NotNull final Map<String, String> params)
+   Event(@NotNull final String type, final long timeInMillis, @NotNull final Map<String, String> params, final TimeZone timeZone)
       {
       this.type = type;
       this.timeInMillis = timeInMillis;
-      final Calendar dateTime = new GregorianCalendar();
-      dateTime.setTimeInMillis(timeInMillis);
-      this.dateInMillis = new GregorianCalendar(dateTime.get(Calendar.YEAR),
-                                                dateTime.get(Calendar.MONTH),
-                                                dateTime.get(Calendar.DAY_OF_MONTH)).getTimeInMillis();
+      final DateTime time = new DateTime(timeInMillis, DateTimeZone.forTimeZone(timeZone));
+      final DateTime date = new DateTime(time.getYear(),
+                                         time.getMonthOfYear(),
+                                         time.getDayOfMonth(),
+                                         0,
+                                         0,
+                                         0,
+                                         0,
+                                         DateTimeZone.forTimeZone(timeZone));
+
+      this.dateInMillis = date.getMillis();
       this.params.putAll(params);
       }
 

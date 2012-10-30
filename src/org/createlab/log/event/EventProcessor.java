@@ -9,7 +9,7 @@ interface EventProcessor
    {
    void beforeProcessingAnyEvents();
 
-   void process(@NotNull final Event event);
+   void processEvent(@NotNull final Event event);
 
    void afterProcessingAnyEvents();
    }

@@ -10,6 +10,7 @@
       <!-- third-party jars -->
       <pathelement path="${log4j.jar}"/>
       <pathelement path="${jetbrains-annotations.jar}"/>
+      <pathelement path="${joda-time.jar}"/>
    </path>
 
    <!-- Compiler resources -->
@@ -63,9 +64,11 @@
    <target name="dist" depends="build" description="builds the project" unless="dist-is-complete">
       <create-dist component.name="app">
          <jar-manifest-attributes>
-            <attribute name="Main-Class" value="org.createlab.log.event.EventLogProcessor"/>
+            <attribute name="Main-Class" value="org.createlab.log.event.LogFileProcessor"/>
          </jar-manifest-attributes>
-         <additional-files-to-copy/>
+         <additional-files-to-copy>
+            <fileset file="${joda-time.jar}"/>
+         </additional-files-to-copy>
       </create-dist>
 
       <property name="dist-is-complete" value="true"/>

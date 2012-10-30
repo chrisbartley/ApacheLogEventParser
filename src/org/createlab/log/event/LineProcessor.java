@@ -14,4 +14,6 @@ interface LineProcessor
 
    /** Should be called after all lines are processed. */
    void postProcess();
+
+   int getNumberOfLinesProcessed();
    }

@@ -1,23 +1,25 @@
 package org.createlab.log.event;
 
-import java.util.HashMap;
-import java.util.Map;
+import java.util.TimeZone;
 import java.util.regex.Matcher;
 import java.util.regex.Pattern;
+import org.apache.log4j.Logger;
 import org.jetbrains.annotations.NotNull;
 
 /**
  * @author Chris Bartley (bartley@cmu.edu)
  */
-abstract class BaseEventLogLineProcessor implements EventLogLineProcessor
+abstract class BaseEventLogLineProcessor implements LineProcessor
    {
+   private static final Logger LOG = Logger.getLogger(BaseEventLogLineProcessor.class);
+
    public static final String EVENT_PARAMETER_TYPE_NAME = "type";
    public static final String EVENT_PARAMETER_TIME_NAME = "time";
+   private static final TimeZone DEFAULT_TIME_ZONE = TimeZone.getTimeZone("GMT+0");
 
-   private static final Pattern EVENT_LOG_PATTERN = Pattern.compile("^.*event\\.json\\?(.*)&_=.*$");
+   private static final Pattern EVENT_LOG_PATTERN = Pattern.compile("^([\\d]+),([\\d]+),([^,]+),(.*)$");
 
    private int numLinesProcessed = 0;
-   private int numEventLinesProcessed = 0;
 
    @Override
    public final void processLine(@NotNull final String line)
@@ -29,45 +31,18 @@ abstract class BaseEventLogLineProcessor implements EventLogLineProcessor
          final boolean isMatchFound = matcher.find();
          if (isMatchFound)
             {
-            if (matcher.groupCount() == 1)
+            if (matcher.groupCount() == 4)
                {
-               final String eventParameterStr = matcher.group(1);
-               if (eventParameterStr != null && eventParameterStr.length() > 0)
+               try
                   {
-                  final String[] keyValuePairs = eventParameterStr.split("&");
-                  if (keyValuePairs != null && keyValuePairs.length > 0)
-                     {
-                     final Map<String, String> eventParameters = new HashMap<String, String>(keyValuePairs.length);
-                     String eventType = null;
-                     long eventTimeInMillis = -1;
-                     for (final String keyValuePair : keyValuePairs)
-                        {
-                        final String[] keyAndValue = keyValuePair.split("=");
-                        final String key = keyAndValue[0];
-                        final String value = keyAndValue[1];
-                        if (key != null && value != null)
-                           {
-                           if (EVENT_PARAMETER_TYPE_NAME.equals(key))
-                              {
-                              eventType = value;
-                              }
-                           else if (EVENT_PARAMETER_TIME_NAME.equals(key))
-                              {
-                              eventTimeInMillis = Long.parseLong(value);
-                              }
-                           else
-                              {
-                              eventParameters.put(key, value);
-                              }
-                           }
-                        }
-                     if (eventType != null && eventTimeInMillis >= 0)
-                        {
-                        final Event event = new Event(eventType, eventTimeInMillis, eventParameters);
-                        process(event);
-                        numEventLinesProcessed++;
-                        }
-                     }
+                  processEvent(Long.parseLong(matcher.group(1)),
+                               Long.parseLong(matcher.group(2)),
+                               matcher.group(3),
+                               matcher.group(4));
+                  }
+               catch (NumberFormatException e)
+                  {
+                  LOG.error("NumberFormatException while processing line [" + line + "]", e);
                   }
                }
             }
@@ -78,7 +53,6 @@ abstract class BaseEventLogLineProcessor implements EventLogLineProcessor
    public final void preProcess()
       {
       numLinesProcessed = 0;
-      numEventLinesProcessed = 0;
       doBeforeProcessingLines();
       }
 
@@ -94,7 +68,10 @@ abstract class BaseEventLogLineProcessor implements EventLogLineProcessor
       // do nothing
       }
 
-   protected abstract void process(@NotNull final Event event);
+   protected abstract void processEvent(final long dateInMillis,
+                                        final long eventTimeInMillis,
+                                        @NotNull final String eventType,
+                                        @NotNull final String eventParams);
 
    /** Called after all lines are processed.  Does nothing by default. */
    protected void doAfterProcessingLines()
@@ -108,9 +85,8 @@ abstract class BaseEventLogLineProcessor implements EventLogLineProcessor
       return numLinesProcessed;
       }
 
-   @Override
-   public final int getNumberOfEventLinesProcessed()
+   protected TimeZone getTimeZone()
       {
-      return numEventLinesProcessed;
+      return DEFAULT_TIME_ZONE;
       }
    }

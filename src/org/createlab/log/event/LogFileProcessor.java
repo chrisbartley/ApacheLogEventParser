@@ -11,9 +11,9 @@ import org.jetbrains.annotations.NotNull;
 /**
  * @author Chris Bartley (bartley@cmu.edu)
  */
-public final class EventLogProcessor
+public final class LogFileProcessor
    {
-   private static final Logger LOG = Logger.getLogger(EventLogProcessor.class);
+   private static final Logger LOG = Logger.getLogger(LogFileProcessor.class);
 
    private static final String OPTION_PRINT_TYPES = "--list-event-types";
 
@@ -35,7 +35,7 @@ public final class EventLogProcessor
 
          if (logFile.exists() && logFile.canRead())
             {
-            final EventLogProcessor eventParser = new EventLogProcessor();
+            final LogFileProcessor logFileProcessor = new LogFileProcessor();
             if (args.length == 2)
                {
                final LineProcessor lineProcessor = instantiateLogLineProcessor(logLineProcessorClassName);
@@ -45,12 +45,12 @@ public final class EventLogProcessor
                   }
                else
                   {
-                  eventParser.parse(logFile, lineProcessor);
+                  logFileProcessor.parse(logFile, lineProcessor);
                   }
                }
             else if (args[2].equals(OPTION_PRINT_TYPES))
                {
-               eventParser.listEventTypes(logFile);
+               logFileProcessor.listEventTypes(logFile);
                }
             }
          else
@@ -105,15 +105,15 @@ public final class EventLogProcessor
 
    private void listEventTypes(@NotNull final File logFile)
       {
-      LOG.debug("EventLogProcessor.printTypes(" + logFile + ")");
+      LOG.debug("LogFileProcessor.printTypes(" + logFile + ")");
       final SortedSet<String> types = new TreeSet<String>();
 
       final LineReader lineReader = new LineReader(logFile);
       lineReader.read(
-            new BaseEventLogLineProcessor()
+            new BaseApacheLogLineProcessor()
             {
             @Override
-            protected void process(@NotNull Event event)
+            protected void processEvent(@NotNull Event event)
                {
                types.add(event.getType());
                }
@@ -122,7 +122,6 @@ public final class EventLogProcessor
             public void doAfterProcessingLines()
                {
                System.out.println("Number of lines processed       = " + getNumberOfLinesProcessed());
-               System.out.println("Number of event lines processed = " + getNumberOfEventLinesProcessed());
                }
             });
 
@@ -134,7 +133,7 @@ public final class EventLogProcessor
 
    private void parse(@NotNull final File logFile, final LineProcessor lineProcessor)
       {
-      LOG.debug("EventLogProcessor.parse(" + logFile + ")");
+      LOG.debug("LogFileProcessor.parse(" + logFile + ")");
       final LineReader lineReader = new LineReader(logFile);
       lineReader.read(lineProcessor);
       }
