@@ -1,2 +1,5 @@
 *.DS_Store
 ApacheLogEventParser.iws
+build
+dist
+out
