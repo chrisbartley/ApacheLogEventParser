@@ -45,16 +45,22 @@ abstract class BaseApacheLogLineProcessor implements LineProcessor
                         {
                         final String[] keyAndValue = keyValuePair.split("=");
                         final String key = keyAndValue[0];
-                        final String value = keyAndValue[1];
-                        if (key != null && value != null)
+                        final String value = (keyAndValue.length >= 2) ? keyAndValue[1] : null;
+                        if (key != null)
                            {
                            if (EVENT_PARAMETER_TYPE_NAME.equals(key))
                               {
-                              eventType = value;
+                              if (value != null)
+                                 {
+                                 eventType = value;
+                                 }
                               }
                            else if (EVENT_PARAMETER_TIME_NAME.equals(key))
                               {
-                              eventTimeInMillis = Long.parseLong(value);
+                              if (value != null)
+                                 {
+                                 eventTimeInMillis = Long.parseLong(value);
+                                 }
                               }
                            else
                               {
