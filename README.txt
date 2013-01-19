@@ -65,4 +65,10 @@ Found [1577] events for type [nav-tap]
 
 $ sort -g event-log.csv > event-log-sorted.csv
 
+Now manually strip out all occurences of the following from event-log-sorted.csv:
+* http%3A%2F%2F127.0.0.1%2Fmedia%2F46684%2Faudio%2F
+* http%3A%2F%2F127.0.0.1%2Fmedia%2F46684%2Fvideo%2F
+* http%3A%2F%2Flocalhost%2Fmedia%2F46684%2Faudio%2F
+* http%3A%2F%2Flocalhost%2Fmedia%2F46684%2Fvideo%2F
+
 $ java -jar dist/event-parser.jar org.createlab.log.event.CmnhStatsGenerator event-log-sorted.csv
