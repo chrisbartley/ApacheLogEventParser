@@ -1,10 +1,13 @@
 package org.createlab.log.event;
 
 import java.io.File;
+import java.io.FileNotFoundException;
+import java.io.PrintStream;
 import java.util.HashMap;
 import java.util.Map;
 import java.util.SortedMap;
 import java.util.TreeMap;
+import org.apache.log4j.Logger;
 import org.jetbrains.annotations.NotNull;
 import org.jetbrains.annotations.Nullable;
 import org.joda.time.DateTime;
@@ -70,6 +73,8 @@ public final class CmnhStatsGenerator extends BaseEventLogLineProcessor
 
    private static final class DailyUsageStats extends CsvOutputEventProcessor
       {
+      private static final Logger LOG = Logger.getLogger(DailyUsageStats.class);
+
       @NotNull
       private static final String[] INTEREST_POINT_IDS = new String[]{"ip1", "ip2", "ip3", "ip4", "ip5", "ip6", "ip7", "ip8", "ip9", "ip10", "ip11", "ip12", "ip13", "ip14"};
 
@@ -102,7 +107,13 @@ public final class CmnhStatsGenerator extends BaseEventLogLineProcessor
       };
 
       @NotNull
-      private static final File FILE = new File("daily-usage-stats.csv");
+      private static final File DAILY_USAGE_STATS_FILE = new File("daily-usage-stats.csv");
+
+      @NotNull
+      private static final File SESSION_STATS_FILE = new File("session-stats.csv");
+
+      @NotNull
+      private final PrintStream sessionStatsPrintStream;
 
       @NotNull
       private final DateTimeFormatter dateTimeFormatter = DateTimeFormat.forPattern("yyyy-MM-dd HH:mm:ss.SSS");
@@ -113,6 +124,7 @@ public final class CmnhStatsGenerator extends BaseEventLogLineProcessor
       private Long timeOfEarliestEvent = null;
       @Nullable
       private Long timeOfLatestEvent = null;
+      private Long timeOfPreviousEvent = null;
 
       private int numInterestPointSelections = 0;
       private int numThemeSelections = 0;
@@ -140,7 +152,27 @@ public final class CmnhStatsGenerator extends BaseEventLogLineProcessor
 
       private DailyUsageStats()
          {
-         super(FILE);
+         super(DAILY_USAGE_STATS_FILE);
+
+         if (SESSION_STATS_FILE.exists())
+            {
+            System.err.println("ERROR: File [" + SESSION_STATS_FILE + "] already exists!!! Aborting.");
+            System.exit(1);
+            }
+
+         PrintStream tempSessionStatsPrintStream = null;
+         try
+            {
+            tempSessionStatsPrintStream = new PrintStream(SESSION_STATS_FILE);
+            }
+         catch (FileNotFoundException e)
+            {
+            LOG.error("FileNotFoundException while trying to generate the session stats file [" + SESSION_STATS_FILE + "]", e);
+            System.err.println("ERROR: Could not create the session stats file [" + SESSION_STATS_FILE + "]. Aborting.");
+            System.exit(1);
+            }
+         sessionStatsPrintStream = tempSessionStatsPrintStream;
+
          resetStats(null);
          }
 
@@ -190,6 +222,17 @@ public final class CmnhStatsGenerator extends BaseEventLogLineProcessor
             }
 
          println(sb.toString());
+
+         // now print the header for the session stats
+         final StringBuilder sb2 = new StringBuilder();
+         sb2.append("date_formatted").append(CsvOutputEventProcessor.FIELD_DELIMITER);
+         sb2.append("starting_time_formatted").append(CsvOutputEventProcessor.FIELD_DELIMITER);
+         sb2.append("ending_time_formatted").append(CsvOutputEventProcessor.FIELD_DELIMITER);
+         sb2.append("date").append(CsvOutputEventProcessor.FIELD_DELIMITER);
+         sb2.append("starting_time").append(CsvOutputEventProcessor.FIELD_DELIMITER);
+         sb2.append("ending_time").append(CsvOutputEventProcessor.FIELD_DELIMITER);
+         sb2.append("duration_millis");
+         sessionStatsPrintStream.println(sb2);
          }
 
       @Override
@@ -197,6 +240,10 @@ public final class CmnhStatsGenerator extends BaseEventLogLineProcessor
          {
          // not used
          }
+
+      private long sessionStartingTime = 0;
+      private long sessionEndingTime = 0;
+      private int sessionCount = 0;
 
       public void processEvent(@NotNull final Long eventDate,
                                final long eventTime,
@@ -212,10 +259,25 @@ public final class CmnhStatsGenerator extends BaseEventLogLineProcessor
                writeDaysStats();
                }
 
+            // See whether an active session was ended because of a new day
+            if (activityMode.equals(CmnhConstants.ActivityMode.ACTIVE))
+               {
+               if (timeOfLatestEvent != null)
+                  {
+                  sessionEndingTime = timeOfLatestEvent;
+                  writeSessionStats();
+                  }
+               else
+                  {
+                  System.err.println("Session was apparently active active at the end of the day, but the timeOfLatestEvent is null.");
+                  }
+               }
+
             resetStats(eventDate);
             timeOfEarliestEvent = eventTime;
             }
          final long elapsedTimeSinceLastEvent = getElapsedTime(eventTime, timeOfLatestEvent);
+         timeOfPreviousEvent = timeOfLatestEvent;
          timeOfLatestEvent = eventTime;
 
          switch (eventType)
@@ -230,6 +292,13 @@ public final class CmnhStatsGenerator extends BaseEventLogLineProcessor
                // increment the INIT activity mode counter
                incrementActivityModeCounter(CmnhConstants.ActivityMode.INIT);
 
+               // See whether an active session was ended because of a page reload
+               if (activityMode.equals(CmnhConstants.ActivityMode.ACTIVE))
+                  {
+                  sessionEndingTime = timeOfPreviousEvent;
+                  writeSessionStats();
+                  }
+
                // We're now in INIT mode
                activityMode = CmnhConstants.ActivityMode.INIT;
                break;
@@ -241,6 +310,9 @@ public final class CmnhStatsGenerator extends BaseEventLogLineProcessor
 
                // We always go into IDLE mode at the end of init-finish.
                activityMode = CmnhConstants.ActivityMode.IDLE;
+
+               resetSessionStartAndEndTimes();
+
                break;
             case MEDIA_PANEL_CLOSE:
                updateActivityModeDuration(activityMode, elapsedTimeSinceLastEvent);
@@ -307,9 +379,18 @@ public final class CmnhStatsGenerator extends BaseEventLogLineProcessor
                // so the correct thing to do is count the elapsed time since last event towards IDLE
                updateActivityModeDuration(CmnhConstants.ActivityMode.IDLE, elapsedTimeSinceLastEvent);
 
-               // The idle screen being visible means we're back in ACTIVE mode
+               // Going in to IDLE mode means when we were in ACTIVE mode means the active session has ended, so write
+               // out the session stats
+               if (activityMode.equals(CmnhConstants.ActivityMode.ACTIVE))
+                  {
+                  sessionEndingTime = timeOfPreviousEvent;
+                  writeSessionStats();
+                  }
+
+               // The idle screen being visible means we're back in IDLE mode
                // (and actually have been idle for the past 90 seconds)
                activityMode = CmnhConstants.ActivityMode.IDLE;
+
                break;
             case IDLE_SCREEN_HIDDEN:
 
@@ -320,12 +401,17 @@ public final class CmnhStatsGenerator extends BaseEventLogLineProcessor
                   {
                   // increment the ACTIVE activity mode counter
                   incrementActivityModeCounter(CmnhConstants.ActivityMode.ACTIVE);
+                  sessionCount++;
                   }
                updateActivityModeDuration(CmnhConstants.ActivityMode.IDLE, elapsedTimeSinceLastEvent);
 
                // The idle screen being hidden means we're back in ACTIVE mode.  Furthermore,
                // this is the ONLY way we can get into ACTIVE mode.
                activityMode = CmnhConstants.ActivityMode.ACTIVE;
+
+               // Record the starting time of this new session
+               sessionStartingTime = eventTime;
+
                break;
             }
          }
@@ -354,24 +440,28 @@ public final class CmnhStatsGenerator extends BaseEventLogLineProcessor
       public void doAfterProcessingAnyEvents()
          {
          writeDaysStats();
+
+         sessionStatsPrintStream.close();
+         }
+
+      private void writeSessionStats()
+         {
+         final StringBuilder sb = new StringBuilder();
+         sb.append(getDateAndTimesAsCsv(sessionStartingTime, sessionEndingTime));
+         sb.append(sessionEndingTime - sessionStartingTime);
+
+         sessionStatsPrintStream.println(sb);
+
+         resetSessionStartAndEndTimes();
          }
 
       private void writeDaysStats()
          {
          final StringBuilder sb = new StringBuilder();
 
-         final DateTime currentDateJoda = new DateTime(currentDate, CmnhConstants.CMNH_TIME_ZONE);
-         final DateTime timeOfFirstEventJoda = new DateTime(timeOfEarliestEvent, CmnhConstants.CMNH_TIME_ZONE);
-         final DateTime timeOfLastEventJoda = new DateTime(timeOfLatestEvent, CmnhConstants.CMNH_TIME_ZONE);
+         sb.append(getDateAndTimesAsCsv(timeOfEarliestEvent, timeOfLatestEvent));
 
-         sb.append(dateTimeFormatter.print(currentDateJoda)).append(CsvOutputEventProcessor.FIELD_DELIMITER);
-         sb.append(dateTimeFormatter.print(timeOfFirstEventJoda)).append(CsvOutputEventProcessor.FIELD_DELIMITER);
-         sb.append(dateTimeFormatter.print(timeOfLastEventJoda)).append(CsvOutputEventProcessor.FIELD_DELIMITER);
-         sb.append(currentDate).append(CsvOutputEventProcessor.FIELD_DELIMITER);
-         sb.append(timeOfEarliestEvent).append(CsvOutputEventProcessor.FIELD_DELIMITER);
-         sb.append(timeOfLatestEvent).append(CsvOutputEventProcessor.FIELD_DELIMITER);
          sb.append(timeOfLatestEvent - timeOfEarliestEvent).append(CsvOutputEventProcessor.FIELD_DELIMITER);
-
          sb.append(activityModeDurations.get(CmnhConstants.ActivityMode.INIT)).append(CsvOutputEventProcessor.FIELD_DELIMITER);
          sb.append(activityModeDurations.get(CmnhConstants.ActivityMode.ACTIVE)).append(CsvOutputEventProcessor.FIELD_DELIMITER);
          sb.append(activityModeDurations.get(CmnhConstants.ActivityMode.IDLE)).append(CsvOutputEventProcessor.FIELD_DELIMITER);
@@ -407,6 +497,23 @@ public final class CmnhStatsGenerator extends BaseEventLogLineProcessor
          println(sb.toString());
          }
 
+      private String getDateAndTimesAsCsv(final Long startingTime, final Long endingTime)
+         {
+         final StringBuilder sb = new StringBuilder();
+         final DateTime currentDateJoda = new DateTime(currentDate, CmnhConstants.CMNH_TIME_ZONE);
+         final DateTime timeOfFirstEventJoda = new DateTime(startingTime, CmnhConstants.CMNH_TIME_ZONE);
+         final DateTime timeOfLastEventJoda = new DateTime(endingTime, CmnhConstants.CMNH_TIME_ZONE);
+
+         sb.append(dateTimeFormatter.print(currentDateJoda)).append(CsvOutputEventProcessor.FIELD_DELIMITER);
+         sb.append(dateTimeFormatter.print(timeOfFirstEventJoda)).append(CsvOutputEventProcessor.FIELD_DELIMITER);
+         sb.append(dateTimeFormatter.print(timeOfLastEventJoda)).append(CsvOutputEventProcessor.FIELD_DELIMITER);
+         sb.append(currentDate).append(CsvOutputEventProcessor.FIELD_DELIMITER);
+         sb.append(startingTime).append(CsvOutputEventProcessor.FIELD_DELIMITER);
+         sb.append(endingTime).append(CsvOutputEventProcessor.FIELD_DELIMITER);
+
+         return sb.toString();
+         }
+
       private void resetStats(final Long date)
          {
          currentDate = date;
@@ -440,6 +547,14 @@ public final class CmnhStatsGenerator extends BaseEventLogLineProcessor
             }
 
          activityMode = CmnhConstants.ActivityMode.UNKNOWN;
+
+         resetSessionStartAndEndTimes();
+         }
+
+      private void resetSessionStartAndEndTimes()
+         {
+         sessionStartingTime = 0;
+         sessionEndingTime = 0;
          }
       }
    }
