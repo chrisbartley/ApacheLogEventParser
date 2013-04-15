@@ -115,6 +115,13 @@ public final class CmnhStatsGenerator extends BaseEventLogLineProcessor
       @NotNull
       private final PrintStream sessionStatsPrintStream;
 
+      private int sessionNumInterestPointSelections = 0;
+      private int sessionNumThemeSelections = 0;
+      private int sessionNumTaps = 0;
+      private int sessionNumAnimationStarts = 0;
+      private int sessionNumAnimationStops = 0;
+      private int sessionResetToHomeView = 0;
+
       @NotNull
       private final DateTimeFormatter dateTimeFormatter = DateTimeFormat.forPattern("yyyy-MM-dd HH:mm:ss.SSS");
 
@@ -231,7 +238,13 @@ public final class CmnhStatsGenerator extends BaseEventLogLineProcessor
          sb2.append("date").append(CsvOutputEventProcessor.FIELD_DELIMITER);
          sb2.append("starting_time").append(CsvOutputEventProcessor.FIELD_DELIMITER);
          sb2.append("ending_time").append(CsvOutputEventProcessor.FIELD_DELIMITER);
-         sb2.append("duration_millis");
+         sb2.append("duration_millis").append(CsvOutputEventProcessor.FIELD_DELIMITER);
+         sb2.append("num_interest_point_selections").append(CsvOutputEventProcessor.FIELD_DELIMITER);
+         sb2.append("num_theme_selections").append(CsvOutputEventProcessor.FIELD_DELIMITER);
+         sb2.append("num_taps").append(CsvOutputEventProcessor.FIELD_DELIMITER);
+         sb2.append("num_animation_starts").append(CsvOutputEventProcessor.FIELD_DELIMITER);
+         sb2.append("num_animation_stops").append(CsvOutputEventProcessor.FIELD_DELIMITER);
+         sb2.append("num_reset_home_view");
          sessionStatsPrintStream.println(sb2);
          }
 
@@ -311,7 +324,7 @@ public final class CmnhStatsGenerator extends BaseEventLogLineProcessor
                // We always go into IDLE mode at the end of init-finish.
                activityMode = CmnhConstants.ActivityMode.IDLE;
 
-               resetSessionStartAndEndTimes();
+               resetSessionStats();
 
                break;
             case MEDIA_PANEL_CLOSE:
@@ -337,6 +350,7 @@ public final class CmnhStatsGenerator extends BaseEventLogLineProcessor
                break;
             case NAV_THEME_CHANGE:
                numThemeSelections++;
+               sessionNumThemeSelections++;
 
                themeSelectionCounts.put(eventParams, themeSelectionCounts.get(eventParams) + 1);
 
@@ -344,6 +358,7 @@ public final class CmnhStatsGenerator extends BaseEventLogLineProcessor
                break;
             case NAV_INTEREST_POINT:
                numInterestPointSelections++;
+               sessionNumInterestPointSelections++;
 
                interestPointSelectionCounts.put(eventParams, interestPointSelectionCounts.get(eventParams) + 1);
 
@@ -351,16 +366,20 @@ public final class CmnhStatsGenerator extends BaseEventLogLineProcessor
                break;
             case NAV_TAP:
                updateActivityModeDuration(activityMode, elapsedTimeSinceLastEvent);
+               sessionNumTaps++;
                break;
             case NAV_RESET_HOME_VIEW:
                updateActivityModeDuration(activityMode, elapsedTimeSinceLastEvent);
                incrementInteractionEventCounter(EventType.NAV_RESET_HOME_VIEW);
+               sessionResetToHomeView++;
                break;
             case NAV_MOVE_START:
                updateActivityModeDuration(activityMode, elapsedTimeSinceLastEvent);
+               sessionNumAnimationStarts++;
                break;
             case NAV_MOVE_FINISH:
                updateActivityModeDuration(activityMode, elapsedTimeSinceLastEvent);
+               sessionNumAnimationStops++;
                break;
             case THEMES_PANEL_DRAWER_OPEN:
                updateActivityModeDuration(activityMode, elapsedTimeSinceLastEvent);
@@ -448,11 +467,18 @@ public final class CmnhStatsGenerator extends BaseEventLogLineProcessor
          {
          final StringBuilder sb = new StringBuilder();
          sb.append(getDateAndTimesAsCsv(sessionStartingTime, sessionEndingTime));
-         sb.append(sessionEndingTime - sessionStartingTime);
+         sb.append(sessionEndingTime - sessionStartingTime).append(CsvOutputEventProcessor.FIELD_DELIMITER);
+
+         sb.append(sessionNumInterestPointSelections).append(CsvOutputEventProcessor.FIELD_DELIMITER);
+         sb.append(sessionNumThemeSelections).append(CsvOutputEventProcessor.FIELD_DELIMITER);
+         sb.append(sessionNumTaps).append(CsvOutputEventProcessor.FIELD_DELIMITER);
+         sb.append(sessionNumAnimationStarts).append(CsvOutputEventProcessor.FIELD_DELIMITER);
+         sb.append(sessionNumAnimationStops).append(CsvOutputEventProcessor.FIELD_DELIMITER);
+         sb.append(sessionResetToHomeView);
 
          sessionStatsPrintStream.println(sb);
 
-         resetSessionStartAndEndTimes();
+         resetSessionStats();
          }
 
       private void writeDaysStats()
@@ -548,13 +574,20 @@ public final class CmnhStatsGenerator extends BaseEventLogLineProcessor
 
          activityMode = CmnhConstants.ActivityMode.UNKNOWN;
 
-         resetSessionStartAndEndTimes();
+         resetSessionStats();
          }
 
-      private void resetSessionStartAndEndTimes()
+      private void resetSessionStats()
          {
          sessionStartingTime = 0;
          sessionEndingTime = 0;
+
+         sessionNumInterestPointSelections = 0;
+         sessionNumThemeSelections = 0;
+         sessionNumTaps = 0;
+         sessionNumAnimationStarts = 0;
+         sessionNumAnimationStops = 0;
+         sessionResetToHomeView = 0;
          }
       }
    }
